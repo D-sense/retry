@@ -186,7 +186,7 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 	}
 	input := make(chan namedWorker, g)
 	todo := int64(len(workers))
-	finished := make(chan struct{},g)
+	finished := make(chan struct{}, g)
 	for i := 0; i < g; i++ {
 		go func() {
 			for nw := range input {
@@ -197,7 +197,6 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 					go func() {
 						select {
 						case <-ctx.Done():
-							finished <- struct{}{}
 						case <-time.After(retry):
 							input <- nw
 						}
@@ -205,9 +204,8 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 					continue
 				}
 				if atomic.AddInt64(&todo, -1) == 0 {
-					finished <- struct{}{}
+					close(finished)
 				}
-
 			}
 			defer wg.Done()
 		}()
@@ -217,7 +215,10 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 		for name, worker := range workers {
 			input <- namedWorker{name, worker}
 		}
-		<-finished
+		select {
+		case <-finished:
+		case <-ctx.Done():
+		}
 		close(input)
 		wgRetry.Wait()
 		wg.Wait()
