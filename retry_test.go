@@ -310,9 +310,9 @@ func TestAllWithPooling(t *testing.T) {
 
 		w := map[string]retry.Worker{"worker1": worker, "worker2": worker}
 		result := retry.All(ctx, time.Millisecond, w, 1)
-		if assert.Error(t, result["worker"].Err) {
-			assert.IsType(t, &retry.Error{}, result["worker"].Err)
-			assert.Equal(t, err, errors.Unwrap(result["worker"].Err))
+		if assert.Error(t, result["worker1"].Err) {
+			assert.IsType(t, &retry.Error{}, result["worker1"].Err)
+			assert.Equal(t, err, errors.Unwrap(result["worker1"].Err))
 		}
 	})
 
@@ -326,9 +326,9 @@ func TestAllWithPooling(t *testing.T) {
 		}
 		w := map[string]retry.Worker{"worker1": worker, "worker2": worker}
 		result := retry.All(ctx, time.Millisecond, w, 1)
-		if assert.Error(t, result["worker"].Err) {
-			assert.IsType(t, &retry.Error{}, result["worker"].Err)
-			assert.Equal(t, err, errors.Unwrap(result["worker"].Err))
+		if assert.Error(t, result["worker1"].Err) {
+			assert.IsType(t, &retry.Error{}, result["worker1"].Err)
+			assert.Equal(t, err, errors.Unwrap(result["worker1"].Err))
 		}
 	})
 }
