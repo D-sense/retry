@@ -175,6 +175,7 @@ func workerPool(ctx context.Context, retry time.Duration, workers map[string]Wor
 	g := concurrency
 	results := make(chan namedResult, g)
 
+	var wgRetry sync.WaitGroup
 	var wg sync.WaitGroup
 	wg.Add(g)
 
@@ -188,7 +189,22 @@ func workerPool(ctx context.Context, retry time.Duration, workers map[string]Wor
 		go func() {
 			defer wg.Done()
 			for nw := range input {
-				result := work(ctx, retry, nw.worker)
+				result := work(ctx, 0, nw.worker)
+				if result.Err != nil && ctx.Err() == nil {
+
+					// We need to wait the retry interval
+					// to put it back in queue.
+					wgRetry.Add(1)
+					go func() {
+						defer wgRetry.Done()
+						select {
+						case <-ctx.Done():
+						case <-time.After(retry):
+							input <- nw
+						}
+					}()
+					continue
+				}
 				results <- namedResult{name: nw.name, Result: result}
 			}
 		}()
@@ -198,6 +214,7 @@ func workerPool(ctx context.Context, retry time.Duration, workers map[string]Wor
 		for name, worker := range workers {
 			input <- namedWorker{name, worker}
 		}
+		wgRetry.Wait()
 		close(input)
 		wg.Wait()
 		close(results)

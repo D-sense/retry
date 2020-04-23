@@ -233,7 +233,7 @@ func TestFirst(t *testing.T) {
 func TestAllWithPooling(t *testing.T) {
 	t.Run("noerror", func(t *testing.T) {
 		t.Log("All should return because all worker functions complete successfully.")
-		retryInterval := time.Nanosecond
+		retryInterval := time.Microsecond
 		worker := func(ctx context.Context) (interface{}, error) {
 			time.Sleep(time.Millisecond)
 			return nil, nil
