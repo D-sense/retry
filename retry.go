@@ -191,9 +191,6 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 			for nw := range input {
 				result := work(ctx, 0, nw.worker)
 				if result.Err != nil && ctx.Err() == nil {
-
-					// We need to wait the retry interval
-					// to put it back in queue.
 					wgRetry.Add(1)
 					go func() {
 						defer wgRetry.Done()
