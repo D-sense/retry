@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -184,26 +185,31 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 		worker Worker
 	}
 	input := make(chan namedWorker, g)
-
+	todo := int64(len(workers))
+	finished := make(chan struct{},g)
 	for i := 0; i < g; i++ {
 		go func() {
-			defer wg.Done()
 			for nw := range input {
+
 				result := work(ctx, 0, nw.worker)
+				results <- namedResult{name: nw.name, Result: result}
 				if result.Err != nil && ctx.Err() == nil {
-					wgRetry.Add(1)
 					go func() {
-						defer wgRetry.Done()
 						select {
 						case <-ctx.Done():
+							finished <- struct{}{}
 						case <-time.After(retry):
 							input <- nw
 						}
 					}()
 					continue
 				}
-				results <- namedResult{name: nw.name, Result: result}
+				if atomic.AddInt64(&todo, -1) == 0 {
+					finished <- struct{}{}
+				}
+
 			}
+			defer wg.Done()
 		}()
 	}
 
@@ -211,8 +217,9 @@ func workPool(ctx context.Context, retry time.Duration, workers map[string]Worke
 		for name, worker := range workers {
 			input <- namedWorker{name, worker}
 		}
-		wgRetry.Wait()
+		<-finished
 		close(input)
+		wgRetry.Wait()
 		wg.Wait()
 		close(results)
 	}()

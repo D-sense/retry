@@ -273,7 +273,7 @@ func TestAllWithPooling(t *testing.T) {
 
 	t.Run("timeout", func(t *testing.T) {
 		t.Log("All should return error because the context timeout exceeded and not all worker functions completed.")
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 		errWork := fmt.Errorf("foo")
 		worker1 := func(ctx context.Context) (interface{}, error) {
