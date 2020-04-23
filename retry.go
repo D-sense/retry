@@ -53,11 +53,11 @@ func All(ctx context.Context, retryInterval time.Duration, workers map[string]Wo
 
 	switch {
 	case concurrency == 0 || concurrency >= len(workers):
-		for result := range workerMap(ctx, retryInterval, workers) {
+		for result := range workMap(ctx, retryInterval, workers) {
 			results[result.name] = result.Result
 		}
 	default:
-		for result := range workerPool(ctx, retryInterval, workers, concurrency) {
+		for result := range workPool(ctx, retryInterval, workers, concurrency) {
 			results[result.name] = result.Result
 		}
 	}
@@ -78,14 +78,14 @@ func First(ctx context.Context, retryInterval time.Duration, workers map[string]
 
 	switch {
 	case concurrency == 0 || concurrency >= len(workers):
-		for result := range workerMap(ctx, retryInterval, workers) {
+		for result := range workMap(ctx, retryInterval, workers) {
 			if result.Result.Err != nil {
 				continue
 			}
 			return result.Result
 		}
 	default:
-		for result := range workerPool(ctx, retryInterval, workers, concurrency) {
+		for result := range workPool(ctx, retryInterval, workers, concurrency) {
 			if result.Result.Err != nil {
 				continue
 			}
@@ -141,10 +141,10 @@ func work(ctx context.Context, retryInterval time.Duration, worker Worker) Resul
 	}
 }
 
-// workerMap calls the map of worker functions every retry interval until the
+// workMap calls the map of worker functions every retry interval until the
 // worker function succeeds or the context times out. As worker functions
 // complete, their results are signaled over the channel for processing.
-func workerMap(ctx context.Context, retry time.Duration, workers map[string]Worker) <-chan namedResult {
+func workMap(ctx context.Context, retry time.Duration, workers map[string]Worker) <-chan namedResult {
 	g := len(workers)
 	results := make(chan namedResult, g)
 
@@ -166,12 +166,12 @@ func workerMap(ctx context.Context, retry time.Duration, workers map[string]Work
 	return results
 }
 
-// workerPool calls the map of worker functions every retry interval until the
+// workPool calls the map of worker functions every retry interval until the
 // worker function succeeds or the context times out. As worker functions
 // complete, their results are signaled over the channel for processing. Instead
 // of running each worker in a separate goroutine, the worker functions are
 // executed from a pool of goroutines.
-func workerPool(ctx context.Context, retry time.Duration, workers map[string]Worker, concurrency int) <-chan namedResult {
+func workPool(ctx context.Context, retry time.Duration, workers map[string]Worker, concurrency int) <-chan namedResult {
 	g := concurrency
 	results := make(chan namedResult, g)
 
