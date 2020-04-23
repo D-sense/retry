@@ -41,35 +41,7 @@ func (err *Error) Unwrap() error {
 // Func calls the worker function every retry interval until the worker
 // function succeeds or the context times out.
 func Func(ctx context.Context, retryInterval time.Duration, worker Worker) Result {
-	var retry *time.Timer
-	start := time.Now()
-
-	if ctx.Err() != nil {
-		return Result{Err: &Error{errWork: nil, since: time.Since(start)}}
-	}
-
-	for {
-		value, err := worker(ctx)
-		if err == nil {
-			return Result{Value: value}
-		}
-
-		if ctx.Err() != nil {
-			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
-		}
-
-		if retry == nil {
-			retry = time.NewTimer(retryInterval)
-		}
-
-		select {
-		case <-ctx.Done():
-			retry.Stop()
-			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
-		case <-retry.C:
-			retry.Reset(retryInterval)
-		}
-	}
+	return work(ctx, retryInterval, worker)
 }
 
 // All calls all the worker functions every retry interval until the worker
@@ -131,6 +103,40 @@ type namedResult struct {
 	Result
 }
 
+// work calls the worker function every retry interval until the worker
+// function succeeds or the context times out.
+func work(ctx context.Context, retryInterval time.Duration, worker Worker) Result {
+	var retry *time.Timer
+	start := time.Now()
+
+	if ctx.Err() != nil {
+		return Result{Err: &Error{errWork: nil, since: time.Since(start)}}
+	}
+
+	for {
+		value, err := worker(ctx)
+		if err == nil {
+			return Result{Value: value}
+		}
+
+		if ctx.Err() != nil {
+			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
+		}
+
+		if retry == nil {
+			retry = time.NewTimer(retryInterval)
+		}
+
+		select {
+		case <-ctx.Done():
+			retry.Stop()
+			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
+		case <-retry.C:
+			retry.Reset(retryInterval)
+		}
+	}
+}
+
 // workerMap calls the map of worker functions every retry interval until the
 // worker function succeeds or the context times out. As worker functions
 // complete, their results are signaled over the channel for processing.
@@ -145,7 +151,7 @@ func workerMap(ctx context.Context, retry time.Duration, workers map[string]Work
 			name, worker := name, worker
 			go func() {
 				defer wg.Done()
-				result := Func(ctx, retry, worker)
+				result := work(ctx, retry, worker)
 				results <- namedResult{name: name, Result: result}
 			}()
 		}
@@ -178,7 +184,7 @@ func workerPool(ctx context.Context, retry time.Duration, workers map[string]Wor
 		go func() {
 			defer wg.Done()
 			for nw := range input {
-				result := Func(ctx, retry, nw.worker)
+				result := work(ctx, retry, nw.worker)
 				results <- namedResult{name: nw.name, Result: result}
 			}
 		}()
