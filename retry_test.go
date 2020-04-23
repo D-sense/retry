@@ -293,6 +293,44 @@ func TestAllWithPooling(t *testing.T) {
 			assert.Equal(t, errWork, errors.Unwrap(results["worker2"].Err))
 		}
 	})
+
+	t.Run("cancel1g", func(t *testing.T) {
+		t.Log("All should return error because the context cancel function is called.")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := fmt.Errorf("foo")
+		worker := func(ctx context.Context) (interface{}, error) {
+			return nil, err
+		}
+
+		go func() {
+			time.Sleep(2*time.Millisecond)
+			cancel()
+		}()
+
+		w := map[string]retry.Worker{"worker1": worker, "worker2": worker}
+		result := retry.All(ctx, time.Millisecond, w, 1)
+		if assert.Error(t, result["worker"].Err) {
+			assert.IsType(t, &retry.Error{}, result["worker"].Err)
+			assert.Equal(t, err, errors.Unwrap(result["worker"].Err))
+		}
+	})
+
+	t.Run("timeout1g", func(t *testing.T) {
+		t.Log("All should return error because the context cancel function is called.")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := fmt.Errorf("foo")
+		worker := func(ctx context.Context) (interface{}, error) {
+			return nil, err
+		}
+		w := map[string]retry.Worker{"worker1": worker, "worker2": worker}
+		result := retry.All(ctx, time.Millisecond, w, 1)
+		if assert.Error(t, result["worker"].Err) {
+			assert.IsType(t, &retry.Error{}, result["worker"].Err)
+			assert.Equal(t, err, errors.Unwrap(result["worker"].Err))
+		}
+	})
 }
 
 func ExampleFunc() {
