@@ -123,6 +123,10 @@ func work(ctx context.Context, retryInterval time.Duration, worker Worker) Resul
 			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
 		}
 
+		if retryInterval <= 0 {
+			return Result{Err: &Error{errWork: err, since: time.Since(start)}}
+		}
+
 		if retry == nil {
 			retry = time.NewTimer(retryInterval)
 		}
